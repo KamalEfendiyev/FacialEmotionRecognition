@@ -1,0 +1,200 @@
+!pip install mediapipe
+
+import numpy as np
+import cv2
+import mediapipe as mp
+import time
+import glob
+from google.colab.patches import cv2_imshow
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers.experimental.preprocessing import Rescaling
+from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense, Dropout, Flatten
+from tensorflow.keras.layers import BatchNormalization
+from tensorflow.keras.losses import categorical_crossentropy
+from tensorflow.keras.optimizers import Adam
+
+import mediapipe as mp
+mp_face_mesh = mp.solutions.face_mesh
+
+help(mp_face_mesh.FaceMesh)
+
+# Load drawing_utils and drawing_styles
+mp_drawing = mp.solutions.drawing_utils 
+mp_drawing_styles = mp.solutions.drawing_styles
+
+import numpy as np
+import os
+import cv2
+from keras import layers
+#from keras.layers import Input, Dense, Add,Activation, AveragePooling2D, BatchNormalization, Flatten, Conv2D, MaxPooling2D, Dropout, ZeroPadding2D, MaxPool2D, concatenate
+from keras.models import Model, load_model
+from keras.preprocessing.image import ImageDataGenerator
+#from keras.utils import to_categorical
+from keras.initializers import glorot_uniform
+from keras import regularizers
+import scipy.misc
+from matplotlib.pyplot import imshow
+from matplotlib import pyplot as plt
+from sklearn.metrics import classification_report
+from sklearn.metrics import accuracy_score
+import matplotlib.pyplot as plt
+%matplotlib inline
+from tensorflow.keras.layers import Dense, Dropout, Flatten, Activation, Lambda, GlobalAveragePooling2D, Conv2D, MaxPooling2D, AveragePooling2D
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, GlobalAveragePooling2D, BatchNormalization, Concatenate,  LeakyReLU
+from tensorflow.keras import backend
+from keras.layers.merge import concatenate
+from tensorflow.keras.models import Sequential
+
+
+from tensorflow.keras import Model
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers.experimental.preprocessing import Rescaling
+from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense, Dropout, Flatten, Activation
+from tensorflow.keras.layers import BatchNormalization, GlobalAveragePooling2D
+from tensorflow.keras.losses import categorical_crossentropy
+from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.initializers import HeNormal
+
+data_dir ='/content/drive/My Drive/диплом/train/mediapipe'
+#data_dir ='/content/drive/My Drive/диплом/val'
+#data_dir ='/content/drive/My Drive/диплом/test'
+#data_dir ='/content/drive/My Drive/диплом/ztrash/train'
+
+from tensorflow.keras.preprocessing import image
+def load_dataset(directory):
+  images = []
+  labels = []
+  #i=1
+  import tensorflow as tf
+  for idx,label in enumerate(uniq_labels):
+    for file in os.listdir(directory +"/"+ str(label)):
+      file = plt.imread(directory + "/" +str(label) +"/" + file)
+      file = cv2.resize(file, (400,400))
+      
+      with mp_face_mesh.FaceMesh(
+          static_image_mode=True,
+          refine_landmarks=True,
+          max_num_faces=2,
+          min_detection_confidence=0.5) as face_mesh:
+          # Convert the BGR image to RGB and process it with MediaPipe Face Mesh.
+          results = face_mesh.process(cv2.cvtColor(file, cv2.COLOR_BGR2RGB))
+
+          # Draw face landmarks of each face.
+          #print(f'Face landmarks of {full_name}:')
+          if not results.multi_face_landmarks:
+            continue
+          #annotated_image1 = file.copy()
+          for face_landmarks in results.multi_face_landmarks:
+            mp_drawing.draw_landmarks(
+                image=file,
+                landmark_list=face_landmarks,
+                connections=mp_face_mesh.FACEMESH_CONTOURS,
+                landmark_drawing_spec=None,
+                connection_drawing_spec=mp_drawing_styles
+                .get_default_face_mesh_contours_style())
+      file = file.astype('float32') / 255
+      images.append(file)
+
+      #x = x.astype('float32') / 255
+      #images.append(x)
+      labels.append(idx)
+      #print(i)
+      #i=i+1
+  images = np.array(images)
+  labels = np.array(labels)
+  return images, labels
+  
+uniq_labels = sorted(os.listdir(data_dir))
+X_pre, Y_pre = load_dataset(data_dir)
+
+print(X_pre.shape, Y_pre.shape)
+
+mp_face_mesh = mp.solutions.face_mesh
+face_mesh = mp_face_mesh.FaceMesh()
+
+from sklearn.model_selection import train_test_split
+X_train, X_test, Y_train, Y_test = train_test_split(X_pre, Y_pre, test_size = 0.1)
+X_test, X_eval, Y_test, Y_eval = train_test_split(X_test, Y_test, test_size = 0.2)
+print("Train images shape",X_train.shape, Y_train.shape)
+print("Test images shape",X_test.shape, Y_test.shape)
+print("Evaluate image shape",X_eval.shape, Y_eval.shape)
+print("Printing the labels",uniq_labels, len(uniq_labels))
+
+import tensorflow as tf
+Y_train = tf.keras.utils.to_categorical(Y_train)
+Y_t = tf.keras.utils.to_categorical(Y_test)
+Y_eval = tf.keras.utils.to_categorical(Y_eval)
+
+input_shape=X_train[0].shape
+import keras
+
+def build_model():
+    base = tf.keras.applications.InceptionResNetV2(include_top = False, weights = "imagenet", input_tensor=None, input_shape=input_shape)
+    X = base.output
+    X = keras.layers.Flatten()(X)
+    X = keras.layers.Dense(512, activation = 'relu')(X)
+    #X = keras.layers.Dense(512, bias_regularizer=l2(l2_lambda), kernel_regularizer=l2(l1_lambda), activation = 'relu')(X)
+    X = keras.layers.Dropout(0.5)(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(512, activation = 'relu')(X)
+    #X = keras.layers.Dense(512, bias_regularizer=l2(l2_lambda), kernel_regularizer=l2(l1_lambda), activation = 'relu')(X)
+    X = keras.layers.Dropout(0.5)(X)
+    X = keras.layers.BatchNormalization()(X)
+    preds = keras.layers.Dense(len(uniq_labels), activation = 'softmax')(X)
+    #preds = keras.layers.Dense(4, bias_regularizer=l2(l2_lambda), kernel_regularizer=l2(l1_lambda), activation = 'softmax')(X)
+    
+    opt=tf.keras.optimizers.Adam(learning_rate=0.001)
+    model = keras.models.Model(inputs = base.input, outputs = preds)
+    model.compile(optimizer = opt , loss = 'categorical_crossentropy', metrics = ['accuracy'])
+    
+    return model
+   
+  
+  
+model = build_model()
+model.summary
+
+cb_reducelr = tf.keras.callbacks.ReduceLROnPlateau(
+    monitor='val_loss',
+    mode='auto',
+    factor=0.1,
+    patience=3,
+    verbose=2,
+    min_lr=0
+)
+
+cb_earlystop = tf.keras.callbacks.EarlyStopping(
+    monitor='val_accuracy',
+    mode='auto',
+    min_delta=0.0005,
+    patience=8,
+    verbose=2,
+    restore_best_weights=True
+)
+
+train_datagen = ImageDataGenerator(
+    rotation_range=15,
+    width_shift_range=0.15,
+    height_shift_range=0.15,
+    shear_range=0.15,
+    zoom_range=0.15,
+    horizontal_flip=True,
+)
+train_datagen.fit(X_train)
+
+
+#batch_size = 32 #batch size of 32 performs the best.
+history = model.fit(
+    X_train, Y_train, 
+    batch_size = 32,
+    validation_data=(X_eval, Y_eval),
+    steps_per_epoch=len(X_train) / 32,
+    epochs=40,
+    callbacks=[cb_reducelr, cb_earlystop]
+)
+
+eval_loss, eval_acc = model.evaluate(X_test, Y_t)
+print('Evaluation Loss: {:.4f}, Evaluation Accuracy: {:.2f}'.format(eval_loss, eval_acc * 100))
